@@ -57,17 +57,6 @@ export type OrderAcknowledgmentSent = {
     emailAddress: EmailAddress
 }
 
-export function toOrderAcknowledgmentSent(
-    orderId: OrderId,
-    emailAddress: EmailAddress
-): OrderAcknowledgmentSent {
-    return {
-        kind: 'OrderAcknowledgmentSent',
-        orderId,
-        emailAddress,
-    }
-}
-
 /**
  * Priced state
  */
@@ -163,4 +152,4 @@ export type PlaceOrderError =
 
 export type PlaceOrder = (
     unvalidatedOrder: UnvalidatedOrder
-) => TaskEither<UnvalidatedOrder, PlaceOrderEvent[]>
+) => TaskEither<PlaceOrderError, PlaceOrderEvent[]>

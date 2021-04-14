@@ -2,16 +2,22 @@
 // ValidateOrder step
 // ---------------------------
 
-import { sequenceS } from 'fp-ts/lib/Apply'
+import { sequenceS, sequenceT } from 'fp-ts/lib/Apply'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import { flow } from 'fp-ts/lib/function'
-import { none, some } from 'fp-ts/lib/Option'
+import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/pipeable'
 import * as TE from 'fp-ts/lib/TaskEither'
-import { sumPrices } from '../common/simple-types/billing-amount'
-import { createEmailAddress } from '../common/simple-types/email-address'
-import { createOrderId } from '../common/simple-types/order-id'
+import {
+    getBillingAmountValue,
+    sumPrices,
+} from '../common/simple-types/billing-amount'
+import {
+    createEmailAddress,
+    EmailAddress,
+} from '../common/simple-types/email-address'
+import { createOrderId, OrderId } from '../common/simple-types/order-id'
 import { createOrderLineId } from '../common/simple-types/order-line-id'
 import {
     createOrderQuantity,
@@ -34,19 +40,27 @@ import {
     CheckAddressExists,
     CheckedAddress,
     CheckProductCodeExists,
+    CreateEvents,
+    CreateOrderAcknowledgmentLetter,
     GetProductPrice,
     PriceOrder,
+    SendOrderAcknowledgment,
     ValidatedOrderLine,
     ValidateOrder,
 } from './internal-types'
 import {
+    BillableOrderPlaced,
+    OrderAcknowledgmentSent,
+    OrderPlaced,
+    PlaceOrder,
+    PricedOrder,
     PricedOrderLine,
     PricingError,
-    toOrderAcknowledgmentSent,
     toPricingError,
     toValidationError,
     UnvalidatedAddress,
     UnvalidatedCustomerInfo,
+    UnvalidatedOrder,
     UnvalidatedOrderLine,
     ValidationError,
 } from './public-types'
@@ -271,15 +285,127 @@ const acknowledgeOrder: AcknowledgeOrder = (createAcknowledgmentLetter) => (
 
     switch (sendAcknowledgment(acknowledgement).kind) {
         case 'Sent': {
-            const event = toOrderAcknowledgmentSent(
+            const event = createOrderAcknowledgmentSent(
                 pricedOrder.orderId,
                 pricedOrder.customerInfo.emailAddress
             )
 
-            return some(event)
+            return O.some(event)
         }
 
         case 'NotSent':
-            return none
+            return O.none
+    }
+}
+
+// ---------------------------
+// Create events
+// ---------------------------
+
+function createOrderAcknowledgmentSent(
+    orderId: OrderId,
+    emailAddress: EmailAddress
+): OrderAcknowledgmentSent {
+    return {
+        kind: 'OrderAcknowledgmentSent',
+        orderId,
+        emailAddress,
+    }
+}
+
+function createOrderPlacedEvent(pricedOrder: PricedOrder): OrderPlaced {
+    return {
+        kind: 'OrderPlaced',
+        ...pricedOrder,
+    }
+}
+
+function createBillableOrderPlaced({
+    orderId,
+    billingAddress,
+    amountToBill,
+}: PricedOrder): BillableOrderPlaced {
+    return {
+        kind: 'BillableOrderPlaced',
+        orderId,
+        billingAddress,
+        amountToBill,
+    }
+}
+
+function createBillingEvent(
+    pricedOrder: PricedOrder
+): O.Option<BillableOrderPlaced> {
+    const billingAmount = getBillingAmountValue(pricedOrder.amountToBill)
+
+    if (billingAmount <= 0) return O.none
+
+    return O.some(createBillableOrderPlaced(pricedOrder))
+}
+
+// natural transformation
+function optionToList<T>(option: O.Option<T>) {
+    return O.isSome(option) ? [option.value] : []
+}
+
+const createEvents: CreateEvents = (pricedOrder) => (
+    acknowledgmentEventOpt
+) => {
+    const acknowledgmentEvents = pipe(acknowledgmentEventOpt, optionToList)
+
+    const orderPlacedEvents = pipe(
+        pricedOrder,
+        createOrderPlacedEvent,
+        Array.of
+    )
+    const billingEvents = pipe(pricedOrder, createBillingEvent, optionToList)
+
+    return [...acknowledgmentEvents, ...orderPlacedEvents, ...billingEvents]
+}
+
+// ---------------------------
+// overall workflow
+// ---------------------------
+const placeOrder = (
+    checkProductExists: CheckProductExists // dependency
+) => (
+    checkAddressExists: CheckAddressExists // dependency
+) => (
+    getProductPrice: GetProductPrice // dependency
+) => (
+    createAcknowledgmentLetter: CreateOrderAcknowledgmentLetter // dependency
+) => (
+    sendOrderAcknowledgment: SendOrderAcknowledgment // dependency
+): PlaceOrder => {
+    return (unvalidatedOrder: UnvalidatedOrder) => {
+        const validatedOrder = pipe(
+            unvalidatedOrder,
+            validateOrder(checkProductExists)(checkAddressExists),
+            TE.mapLeft(({ error }) => toPricingError(error))
+        )
+
+        const pricedOrder = pipe(
+            validatedOrder,
+            TE.chain(flow(priceOrder(getProductPrice), TE.fromEither))
+        )
+
+        const acknowledgmentOption = pipe(
+            pricedOrder,
+            TE.map(
+                acknowledgeOrder(createAcknowledgmentLetter)(
+                    sendOrderAcknowledgment
+                )
+            )
+        )
+
+        const events = pipe(
+            { pricedOrder, acknowledgmentOption },
+            sequenceS(TE.taskEither),
+            TE.map(({ pricedOrder, acknowledgmentOption }) =>
+                createEvents(pricedOrder)(acknowledgmentOption)
+            )
+        )
+
+        return events
     }
 }
