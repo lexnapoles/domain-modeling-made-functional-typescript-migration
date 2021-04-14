@@ -6,8 +6,8 @@
 import { TaskEither } from 'fp-ts/lib/TaskEither'
 import { BillingAmount } from '../common/simple-types/billing-amount'
 import { EmailAddress } from '../common/simple-types/email-address'
-import { OrderLineId } from '../common/simple-types/order-id'
-import { OrderId } from '../common/simple-types/order-line-id'
+import { OrderId } from '../common/simple-types/order-id'
+import { OrderLineId } from '../common/simple-types/order-line-id'
 import { OrderQuantity } from '../common/simple-types/order-quantity'
 import { Price } from '../common/simple-types/price'
 import { ProductCode } from '../common/simple-types/product-code'
@@ -55,6 +55,17 @@ export type OrderAcknowledgmentSent = {
     kind: 'OrderAcknowledgmentSent'
     orderId: OrderId
     emailAddress: EmailAddress
+}
+
+export function toOrderAcknowledgmentSent(
+    orderId: OrderId,
+    emailAddress: EmailAddress
+): OrderAcknowledgmentSent {
+    return {
+        kind: 'OrderAcknowledgmentSent',
+        orderId,
+        emailAddress,
+    }
 }
 
 /**

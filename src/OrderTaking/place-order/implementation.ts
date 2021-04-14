@@ -6,6 +6,7 @@ import { sequenceS } from 'fp-ts/lib/Apply'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import { flow } from 'fp-ts/lib/function'
+import { none, some } from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/pipeable'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { sumPrices } from '../common/simple-types/billing-amount'
@@ -29,6 +30,7 @@ import { createZipCode } from '../common/simple-types/zip-code'
 import { Address, CustomerInfo } from '../compound-types'
 import { CheckProductExists } from './api'
 import {
+    AcknowledgeOrder,
     CheckAddressExists,
     CheckedAddress,
     CheckProductCodeExists,
@@ -40,6 +42,7 @@ import {
 import {
     PricedOrderLine,
     PricingError,
+    toOrderAcknowledgmentSent,
     toPricingError,
     toValidationError,
     UnvalidatedAddress,
@@ -185,6 +188,10 @@ const validateOrder: ValidateOrder = (checkProductCodeExists) => (
     })
 }
 
+// ---------------------------
+// PriceOrder step
+// ---------------------------
+
 const toPricedOrderLine = (getProductPrice: GetProductPrice) => ({
     quantity,
     productCode,
@@ -244,5 +251,35 @@ function merge<T = object, V = object>(t: T) {
             ...t,
             ...v,
         }
+    }
+}
+
+// ---------------------------
+// AcknowledgeOrder step
+// ---------------------------
+
+const acknowledgeOrder: AcknowledgeOrder = (createAcknowledgmentLetter) => (
+    sendAcknowledgment
+) => (pricedOrder) => {
+    const acknowledgement = {
+        emailAddress: pricedOrder.customerInfo.emailAddress,
+        letter: createAcknowledgmentLetter(pricedOrder),
+    }
+
+    // if the acknowledgement was successfully sent,
+    // return the corresponding event, else return None
+
+    switch (sendAcknowledgment(acknowledgement).kind) {
+        case 'Sent': {
+            const event = toOrderAcknowledgmentSent(
+                pricedOrder.orderId,
+                pricedOrder.customerInfo.emailAddress
+            )
+
+            return some(event)
+        }
+
+        case 'NotSent':
+            return none
     }
 }

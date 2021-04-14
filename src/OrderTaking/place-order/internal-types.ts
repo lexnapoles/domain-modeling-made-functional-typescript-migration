@@ -90,8 +90,8 @@ export type PriceOrder = (
 export type HtmlString = string
 
 export type OrderAcknowledgment = {
-    EmailAddress: EmailAddress
-    Letter: HtmlString
+    emailAddress: EmailAddress
+    letter: HtmlString
 }
 
 export type CreateOrderAcknowledgmentLetter = (
