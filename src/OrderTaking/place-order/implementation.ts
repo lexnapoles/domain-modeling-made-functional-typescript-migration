@@ -53,6 +53,7 @@ import {
     OrderAcknowledgmentSent,
     OrderPlaced,
     PlaceOrder,
+    PlaceOrderError,
     PricedOrder,
     PricedOrderLine,
     PricingError,
@@ -381,12 +382,18 @@ const placeOrder = (
         const validatedOrder = pipe(
             unvalidatedOrder,
             validateOrder(checkProductExists)(checkAddressExists),
-            TE.mapLeft(({ error }) => toPricingError(error))
+            TE.mapLeft((error): PlaceOrderError => error)
         )
 
         const pricedOrder = pipe(
             validatedOrder,
-            TE.chain(flow(priceOrder(getProductPrice), TE.fromEither))
+            TE.chain(
+                flow(
+                    priceOrder(getProductPrice),
+                    TE.fromEither,
+                    TE.mapLeft((error): PlaceOrderError => error)
+                )
+            )
         )
 
         const acknowledgmentOption = pipe(
