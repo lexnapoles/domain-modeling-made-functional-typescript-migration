@@ -5,7 +5,7 @@ import { AddressDto, addressDtofromAddress } from './address-dto'
 /**
  *  Event to send to billing context
  */
-type BillableOrderPlacedDto = {
+export type BillableOrderPlacedDto = {
     orderId: string
     billingAddress: AddressDto
     amountToBill: number

@@ -1,3 +1,4 @@
+import { assertNever } from '../../../assert-never'
 import { PlaceOrderError } from '../public-types'
 
 export type PlaceOrderErrorDto = {
@@ -25,5 +26,7 @@ export function placeOrderErrorDtoFromDomain(
                 code: 'RemoteServiceError',
                 message: `${domainObj.service.name}: ${domainObj.exception.message}`,
             }
+        default:
+            assertNever(domainObj)
     }
 }

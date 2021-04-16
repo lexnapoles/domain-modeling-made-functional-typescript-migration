@@ -9,6 +9,7 @@ import { flow } from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/pipeable'
 import * as TE from 'fp-ts/lib/TaskEither'
+import { assertNever } from '../../assert-never'
 import {
     getBillingAmountValue,
     sumPrices,
@@ -118,6 +119,8 @@ const toCheckedAddress = (checkAddress: CheckAddressExists) => (
                     return toValidationError('Address not found')
                 case 'InvalidFormat':
                     return toValidationError('Address has bad format')
+                default:
+                    assertNever(error)
             }
         })
     )
@@ -287,7 +290,9 @@ const acknowledgeOrder: AcknowledgeOrder = (createAcknowledgmentLetter) => (
     // if the acknowledgement was successfully sent,
     // return the corresponding event, else return None
 
-    switch (sendAcknowledgment(acknowledgement).kind) {
+    const sentAcknowledgment = sendAcknowledgment(acknowledgement)
+
+    switch (sentAcknowledgment.kind) {
         case 'Sent': {
             const event = createOrderAcknowledgmentSent(
                 pricedOrder.orderId,
@@ -299,6 +304,9 @@ const acknowledgeOrder: AcknowledgeOrder = (createAcknowledgmentLetter) => (
 
         case 'NotSent':
             return O.none
+
+        default:
+            assertNever(sentAcknowledgment)
     }
 }
 

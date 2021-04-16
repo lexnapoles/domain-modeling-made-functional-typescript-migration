@@ -1,10 +1,20 @@
 import { pipe } from 'fp-ts/lib/pipeable'
+import { assertNever } from '../../../assert-never'
 import { PlaceOrderEvent } from '../public-types'
-import { billableOrderPlacedDtoFromDomain } from './billable-order-placed-dto'
-import { orderAcknowledgmentSentDtoFromDomain } from './order-acknowledgment-sent-dto'
-import { orderPlacedDtoFromDomain } from './order-placed-dto'
+import {
+    BillableOrderPlacedDto,
+    billableOrderPlacedDtoFromDomain,
+} from './billable-order-placed-dto'
+import {
+    OrderAcknowledgmentSentDto,
+    orderAcknowledgmentSentDtoFromDomain,
+} from './order-acknowledgment-sent-dto'
+import { OrderPlacedDto, orderPlacedDtoFromDomain } from './order-placed-dto'
 
-export type PlaceOrderEventDto = Map<string, object>
+export type PlaceOrderEventDto = Map<
+    string,
+    OrderPlacedDto | BillableOrderPlacedDto | OrderAcknowledgmentSentDto
+>
 
 export function placeOrderEventDtoFromDomain(
     domainObj: PlaceOrderEvent
@@ -28,5 +38,7 @@ export function placeOrderEventDtoFromDomain(
 
             return new Map([[key, obj]])
         }
+        default:
+            assertNever(domainObj)
     }
 }

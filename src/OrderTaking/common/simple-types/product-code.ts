@@ -2,18 +2,21 @@ import { Either, left } from 'fp-ts/lib/Either'
 import { GizmoCode, getGizmoCodeValue, createGizmoCode } from './gizmo-code'
 import { WidgetCode, getWidgetCode, createWidgetCode } from './widget-code'
 import { isNullOrEmpty } from './utils'
+import { assertNever } from '../../../assert-never'
 
 export type ProductCode = GizmoCode | WidgetCode
 
 /**
  *  Return the string value inside an GizmoCode
  */
-export function getProductCodeValue(productCode: ProductCode) {
+export function getProductCodeValue(productCode: ProductCode): string {
     switch (productCode.kind) {
         case 'GizmoCode':
             return getGizmoCodeValue(productCode)
         case 'WidgetCode':
             return getWidgetCode(productCode)
+        default:
+            assertNever(productCode)
     }
 }
 
