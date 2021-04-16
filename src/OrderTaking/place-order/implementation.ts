@@ -2,7 +2,7 @@
 // ValidateOrder step
 // ---------------------------
 
-import { sequenceS, sequenceT } from 'fp-ts/lib/Apply'
+import { sequenceS } from 'fp-ts/lib/Apply'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import { flow } from 'fp-ts/lib/function'
@@ -23,9 +23,10 @@ import {
     createOrderQuantity,
     getOrderQuantityValue,
 } from '../common/simple-types/order-quantity'
-import { multiply, Price } from '../common/simple-types/price'
+import { multiply } from '../common/simple-types/price'
 import {
     createProductCode,
+    getProductCodeValue,
     ProductCode,
 } from '../common/simple-types/product-code'
 import {
@@ -140,7 +141,9 @@ const toProductCode = (checkProductCodeExists: CheckProductCodeExists) => (
         pipe(
             productCode,
             E.fromPredicate(checkProductCodeExists, () =>
-                toValidationError(`Invalid: ${productCode}`)
+                toValidationError(
+                    `Invalid: ${getProductCodeValue(productCode)}`
+                )
             )
         )
 
@@ -260,7 +263,7 @@ const priceOrder: PriceOrder = (getProductPrice) => (validatedOrder) => {
 }
 
 // naive merge
-function merge<T = object, V = object>(t: T) {
+function merge<T = Record<string, unknown>, V = Record<string, unknown>>(t: T) {
     return function mergeVAndT(v: V) {
         return {
             ...t,
@@ -367,7 +370,7 @@ const createEvents: CreateEvents = (pricedOrder) => (
 // ---------------------------
 // overall workflow
 // ---------------------------
-const placeOrder = (
+export const placeOrder = (
     checkProductExists: CheckProductExists // dependency
 ) => (
     checkAddressExists: CheckAddressExists // dependency
